@@ -243,7 +243,7 @@ class Loss_MeanAbsoluteError(Loss):
  
 
 class Optimizer_SGD:
-    def __init__(self, learning_rate=1.0, decay=0, momentum=0):
+    def __init__(self, learning_rate=0.001, decay=0, momentum=0):
         self.learning_rate = learning_rate
         self.current_learning_rate = learning_rate
         self.iterations = 0
@@ -277,7 +277,7 @@ class Optimizer_SGD:
         self.iterations += 1
 
 class Optimizer_Adagrad:
-    def __init__(self, learning_rate=1.0, decay=0, epsilon=1e-7):
+    def __init__(self, learning_rate=0.001, decay=0, epsilon=1e-7):
         self.learning_rate = learning_rate
         self.current_learning_rate = learning_rate
         self.iterations = 0
