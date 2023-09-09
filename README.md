@@ -7,9 +7,9 @@ If you want to learn how to make this from scratch I highly recommend learning f
 Added more documentation
 
 ## Layers
-Layer_Dense(<input> <output>, <weight_L1>, <weight_L2>, <bias_L1>, <bias_L2>)
+Layer_Dense(\<input> \<output>, <weight_L1>, <weight_L2>, <bias_L1>, <bias_L2>)
 
-Layer_Dropout(<Percent of missing neurons>) 0.2/20%
+Layer_Dropout(\<Percent of missing neurons>) 0.2/20%
 
 ## Activation
 
@@ -43,10 +43,10 @@ Accuracy_Categorical(<binary=False>)
 Accuracy_Regression()
 
 ## Model
-Model.add(<Layer or Activation>)
+Model.add(\<Layer or Activation>)
 
 Model.set(<loss=Loss()>, <optimizer=Optimizer()>, <accuracy=Accuracy()>)
 
 Model.finalize()
 
-Model.train(<Train>, <Test>, <batch_size=None>, <print_every=1> <validation_data=()>, <epochs=10>)
+Model.train(\<Train>, \<Test>, <batch_size=None>, <print_every=1> <validation_data=()>, <epochs=10>)
