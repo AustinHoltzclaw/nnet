@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 import copy
-
+from scipy import signal
 
 class Layer_Dense:
     def __init__(self, n_inputs, n_neurons, weight_L1=0, weight_L2=0, bias_L1=0, bias_L2=0):
@@ -46,6 +46,49 @@ class Layer_Dense:
         self.weights = weights
         self.biases = biases
 
+class Convolutional:
+    def __init__(self, input_shape, kernel_size, depth):
+        input_depth, input_height, input_width = input_shape
+        self.depth = depth
+        self.input_shape = input_shape
+        self.input_depth = input_depth
+        self.output_shape = (depth, input_height - kernel_size + 1, input_width - kernel_size + 1)
+        self.kernels_shape = (depth, input_depth, kernel_size, kernel_size)
+        self.kernels = np.random.randn(*self.kernels_shape)
+        self.biases = np.random.randn(*self.output_shape)
+
+    def forward(self, inputs, training):
+        self.inputs = inputs
+        self.output = np.copy(self.biases)
+        for i in range(self.depth):
+            for j in range(self.input_depth):
+                self.output[i] += signal.correlate2d(self.inputs[j], self.kernels[i, j], "valid")
+        self.output = self.output
+
+    def backward(self, dvalues):
+        self.dkernels = np.zeros(self.kernels_shape)
+        self.dinputs = np.zeros(self.input_shape)
+
+        for i in range(self.depth):
+            for j in range(self.input_depth):
+                self.dkernels[i, j] = signal.correlate2d(self.inputs[j], dvalues[i], "valid")
+                self.dinputs[j] += signal.convolve2d(dvalues[i], self.kernels[i, j], "full")
+
+        self.dinputs = self.dinputs
+
+class Reshape:
+    def __init__(self, input_shape, output_shape):
+        self.input_shape = input_shape
+        self.output_shape = output_shape
+
+    def forward(self, inputs, training):
+        self.inputs = inputs
+        self.output = np.reshape(inputs, self.output_shape)
+        print(self.output.shape)
+    
+    def backward(self, dvalues):
+        self.dinputs = np.reshape(dvalues, self.input_shape)
+
 class Layer_Dropout:
     def __init__(self, rate):
         self.rate = 1 - rate
@@ -78,6 +121,18 @@ class Activation_ReLU:
 
     def predictions(self, outputs):
         return outputs
+
+class Activation_Tanh:
+    def forward(self, inputs, training):
+        self.inputs = inputs
+        self.output = np.tanh(inputs)
+
+    def backward(self, dvalues):
+        self.dinputs = 1 - np.square(np.tanh(dvalues))
+
+    def predictions(self, outputs):
+        return outputs
+
 
 class Activation_Sigmoid:
     def forward(self, inputs, training):
@@ -255,6 +310,12 @@ class Optimizer_SGD:
             self.current_learning_rate = self.learning_rate * (1 / (1 + self.decay * self.iterations))
 
     def update_params(self, layer):
+        if not hasattr(layer, 'weights'):
+            self.update_params_conv(layer)
+        else:
+            self.update_params_dense(layer)
+
+    def update_params_dense(self, layer):
         if self.momentum:
 
             if not hasattr(layer, 'weight_momentums'):
@@ -273,6 +334,26 @@ class Optimizer_SGD:
         layer.weights += weight_updates
         layer.biases += bias_updates
 
+    def update_params_conv(self, layer):
+        if self.momentum:
+            if not hasattr(layer, 'kernel_momentums'):
+                layer.kernel_momentums = np.zeros_like(layer.kernels)
+                layer.bias_momentums = np.zeros_like(layer.biases)
+
+            kernel_updates = self.momentum * layer.kernel_momentums - self.current_learning_rate * layer.dkernels
+            layer.kernel_momentums = kernel_updates
+            
+            bias_updates = self.momentum * layer.bias_momentums - self.current_learning_rate * layer.dbiases
+            layer.bias_momentums = bias_updates
+
+        else:
+            kernel_updates = -self.current_learning_rate * layer.dkernels
+            bias_updates = -self.current_learning_rate * layer.biases
+
+        layer.kernels += kernel_updates
+        layer.biases += bias_updates
+
+
     def post_update_params(self):
         self.iterations += 1
 
@@ -289,6 +370,12 @@ class Optimizer_Adagrad:
             self.current_learning_rate = self.learning_rate * (1 / (1 + self.decay * self.iterations))
 
     def update_params(self, layer):
+        if not hasattr(layer, 'weights'):
+            self.update_params_conv(layer)
+        else:
+            self.update_params_dense(layer)
+
+    def update_params_dense(self, layer):
 
         if not hasattr(layer, 'weight_cache'):
             layer.weight_cache = np.zeros_like(layer.weights)
@@ -299,6 +386,17 @@ class Optimizer_Adagrad:
 
         layer.weights += -self.current_learning_rate * layer.dweights / (np.sqrt(layer.weight_cache) + self.epsilon)
         layer.biases += -self.current_learning_rate * layer.dbiases / (np.sqrt(layer.bias_cache) + self.epsilon)
+
+    def update_params_conv(self, layer):
+        if not hasattr(layer, 'kernel_cache'):
+            layer.kernel_cache = np.zeros_like(layer.kernels)
+            layer.bias_cache = np.zeros_like(layer.biases)
+        
+        layer.kernel_cache += layer.dkernels ** 2
+        layer.bias_cache += layer.dbiases ** 2
+
+        layer.kernels += -self.current_learning_rate * layer.dkernels / (np.sqrt(layer.kernel_cache) + self.epsilon)
+        layer.biases += -self.current_learning_rate * layer.dbiases / (np.sqrt(layer.bias_cache) + self.epsilon )
 
 
     def post_update_params(self):
@@ -318,6 +416,12 @@ class Optimizer_RMSProp:
             self.current_learning_rate = self.learning_rate * (1 / (1 + self.decay * self.iterations))
 
     def update_params(self, layer):
+        if not hasattr(layer, 'weights'):
+            self.update_params_conv(layer)
+        else:
+            self.update_params_dense(layer)
+
+    def update_params_dense(self, layer):
         if not hasattr(layer, 'weight_cache'):
             layer.weight_cache = np.zeros_like(layer.weights)
             layer.bias_cache = np.zeros_like(layer.biases)
@@ -326,6 +430,17 @@ class Optimizer_RMSProp:
         layer.bias_cache = self.rho * layer.bias_cache + (1 - self.rho) * layer.dbiases ** 2
 
         layer.weights += -self.current_learning_rate * layer.dweights / (np.sqrt(layer.weight_cache) + self.epsilon)
+        layer.biases += -self.current_learning_rate * layer.dbiases / (np.sqrt(layer.bias_cache) + self.epsilon )
+
+    def update_params_conv(self, layer):
+        if not hasattr(layer, 'kernel_cache'):
+            layer.kernel_cache = np.zeros_like(layer.kernels)
+            layer.bias_cache = np.zeros_like(layer.biases)
+        
+        layer.kernel_cache = self.rho * layer.kernel_cache + (1 - self.rho) * layer.dkernels ** 2
+        layer.bias_cache = self.rho * layer.bias_cache + (1 - self.rho) * layer.dbiases ** 2
+
+        layer.kernels += -self.current_learning_rate * layer.dkernels / (np.sqrt(layer.kernel_cache) + self.epsilon)
         layer.biases += -self.current_learning_rate * layer.dbiases / (np.sqrt(layer.bias_cache) + self.epsilon )
 
     def post_update_params(self):
@@ -346,6 +461,12 @@ class Optimizer_Adam:
             self.current_learning_rate = self.learning_rate * (1 / (1 + self.decay * self.iterations))
 
     def update_params(self, layer):
+        if not hasattr(layer, 'weights'):
+            self.update_params_conv(layer)
+        else:
+            self.update_params_dense(layer)
+
+    def update_params_dense(self, layer):
         if not hasattr(layer, 'weight_cache'):
             layer.weight_momentums = np.zeros_like(layer.weights)
             layer.weight_cache = np.zeros_like(layer.weights)
@@ -363,6 +484,25 @@ class Optimizer_Adam:
         bias_cache_corrected = layer.bias_cache / (1 - self.beta2 ** (self.iterations + 1))
 
         layer.weights += -self.current_learning_rate * weight_momentums_corrected / (np.sqrt(weight_cache_corrected) + self.epsilon)
+        layer.biases += -self.current_learning_rate * bias_momentums_corrected / (np.sqrt(bias_cache_corrected) + self.epsilon )
+
+    def update_params_conv(self, layer):
+        if not hasattr(layer, 'kernel_cache'):
+            layer.kernel_momentums = np.zeros_like(layer.kernels)
+            layer.kernel_cache = np.zeros_like(layer.kernels)
+            layer.bias_momentums = np.zeros_like(layer.biases)
+            layer.bias_cache = np.zeros_like(layer.biases)
+
+        layer.kernel_momentums = self.beta1 * layer.kernel_momentums + (1 - self.beta1) * layer.dkernels
+        layer.bias_momentums = self.beta1 * layer.bias_momentums + (1 - self.beta1) * layer.dbiases
+        kernel_momentums_corrected = layer.kernel_momentums / (1 - self.beta1 ** (self.iterations + 1))
+        bias_momentums_corrected = layer.bias_momentums / (1 - self.beta1 ** (self.iterations + 1))
+        
+        layer.kernel_cache = self.beta2 * layer.kernel_cache + (1 - self.beta2) * layer.dkernels ** 2
+        layer.bias_cache = self.beta2 * layer.bias_cache + (1 - self.beta2) * layer.dbiases ** 2
+        kernel_cache_corrected = layer.kernel_cache / (1 - self.beta2 ** (self.iterations + 1))
+        bias_cache_corrected = layer.bias_cache / (1 - self.beta2 ** (self.iterations + 1))
+        layer.kernels += -self.current_learning_rate * kernel_momentums_corrected / (np.sqrt(kernel_cache_corrected) + self.epsilon)
         layer.biases += -self.current_learning_rate * bias_momentums_corrected / (np.sqrt(bias_cache_corrected) + self.epsilon )
 
 
@@ -643,6 +783,3 @@ class Model:
             model = pickle.load(f)
 
         return model
-
-
-
