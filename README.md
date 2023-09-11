@@ -4,7 +4,9 @@ You could just be normal and use scikit learn. This was developed out of persona
 If you want to learn how to make this from scratch I highly recommend learning from https://nnfs.io. I could not be more greatful.
 
 # What's new
-Added more documentation
+Added Convolutional and reshape layer along with its corresponding gradient descent.
+
+Added tanh activation class.
 
 ## Layers
 Layer_Dense(\<input> \<output>, <weight_L1>, <weight_L2>, <bias_L1>, <bias_L2>)
