@@ -1,5 +1,5 @@
 # nnet
-Original idea was to create a neural network library that avoids the need for submitting an SSR for Tensorflow or pytorch.
+Idea was to create a neural network library to better understand how they work.
 You could just be normal and use scikit learn. This was developed out of personal interest.
 If you want to learn how to make this from scratch I highly recommend learning from https://nnfs.io. I could not be more greatful.
 
