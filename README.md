@@ -1,7 +1,7 @@
 # nnet
 Idea was to create a neural network library to better understand how they work.
 You could just be normal and use scikit learn. This was developed out of personal interest.
-If you want to learn how to make this from scratch I highly recommend learning from https://nnfs.io. I could not be more greatful.
+If you want to learn how to make this from scratch I highly recommend learning from https://nnfs.io.
 
 # What's new
 Added Convolutional and reshape layer along with its corresponding gradient descent.
